@@ -36,6 +36,6 @@ vignettes/*.pdf
 rsconnect/
 
 # my annotations should not be uploaded
-.txt
+*.txt
 
 
