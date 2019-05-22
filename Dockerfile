@@ -2,8 +2,8 @@ FROM r-base:3.6.0
 
 RUN mkdir /app
 
-COPY dataframes.RData /app
-COPY workflow.R /app
+COPY useful_files/dataframes.RData /app
+COPY useful_files/workflow.R /app
 
 WORKDIR /app
 
