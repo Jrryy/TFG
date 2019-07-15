@@ -27,8 +27,6 @@ apply_fisher = function(dataset, positive, negative, features_to_keep = 5000, de
   
 	scores = apply(dataset, 2, fisher, positive, negative)
 
-	print(length(scores))
-
 	stopifnot(length(scores) == dim(dataset)[2])
 
 	sorted_scores = sort(scores, decreasing=TRUE, index.return=TRUE)
@@ -36,9 +34,8 @@ apply_fisher = function(dataset, positive, negative, features_to_keep = 5000, de
 	  plot(sorted_scores$x)
 	  
 	  dev.new()
-	} else {
-	  output$to_plot = sorted_scores$x
 	}
+	output$to_plot = sorted_scores$x
 	# We keep the best x features according to fda, 5000 by default but the user should be able to input it.
 	output$data = dataset[, sort(sorted_scores$ix[0:features_to_keep])]
 
@@ -52,6 +49,8 @@ set.seed(1337)
 
 # Applies ReliefF. For now, only ReliefFequalK, but I plan on using exp too and adding a parameter to specify it
 apply_relieff = function(dataset, classes, features_to_keep = 500, iterations = 0, estimator = 'ReliefFexpRank', debug = TRUE){
+  
+  output = NULL
 	
 	stopifnot(length(classes) == dim(dataset)[1])
 
@@ -61,27 +60,34 @@ apply_relieff = function(dataset, classes, features_to_keep = 500, iterations = 
 	reliefF_attrs = attrEval('class', df, estimator=estimator, ReliefIterations=iterations)
 
 	sorted_attrs = sort(reliefF_attrs, decreasing=TRUE, index.return=TRUE)
-
-	plot(sorted_attrs$x)
-	dev.new()
+  if (debug){
+    plot(sorted_attrs$x)
+    dev.new()
+  }
+  output$sorted_attrs = sorted_attrs$x
 	
 	after_relieff = dataset[, sort(sorted_attrs$ix[0:features_to_keep])]
+  
+	if (debug){
+	  heatmap(after_relieff)
+	  dev.new()
+	}
+	output$data = after_relieff
 
-	heatmap(after_relieff)
-	dev.new()
-
-	return(after_relieff)
+	return(output)
 }
 
 ####### PCA #######
 
 apply_pca = function(dataset, classes, components = 10, debug = TRUE){
-	pca_plot = pca(dataset, ncomp=components)
-	plot(pca_plot)
-	dev.new()
-
-	plotIndiv(pca_plot, ind.names=FALSE, group=classes, legend=TRUE, ellipse=TRUE)
-	dev.new()
+	pca_data = pca(dataset, ncomp=components)
+	if (debug){
+	  plot(pca_data)
+	  dev.new()
+	  plotIndiv(pca_data, ind.names=FALSE, group=classes, legend=TRUE, ellipse=TRUE)
+	  dev.new()
+	}
+	return (pca_data)
 }
 
 ####### PLS-DA #######
