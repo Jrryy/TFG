@@ -25,7 +25,7 @@ ui <- fluidPage(
          tags$hr(),
          #### Fisher ####
          tags$h3(paste0('Parameters for Fisher scoring')),
-         numericInput('fisher_vars', 'Amount of variables to keep:', min = 1, value = 5000),
+         numericInput('fisher_vars', 'Amount of variables to keep:', min = 1, value = 1),
          actionButton('submit_fisher', 'Apply Fisher filter'),
          
          tags$hr(),
@@ -35,6 +35,7 @@ ui <- fluidPage(
          numericInput('relieff_vars', 'Amount of variables to keep:', min = 1, value = 1000),
          selectInput('relieff_iters', 'Amount of iterations to perform:', c('Dataset size' = 0, 'ln(Dataset size)' = -1, 'sqrt(Dataset size)' = -2), selected = 0),
          selectInput('relieff_method', 'ReliefF algorithm to calculate the scores:', c('ReliefFequalK', 'ReliefFexpRank'), selected = 'ReliefFequalK'),
+         checkboxInput('draw_relieff_heatmap', 'Draw heatmap of the selected variables after ReliefF?', value = TRUE),
          actionButton('submit_relieff', 'Apply ReliefF'),
          
          tags$hr(),
@@ -43,6 +44,7 @@ ui <- fluidPage(
          numericInput('components', 'Amount of PCA components to extract', value = 10, min = 2),
          numericInput('cv_folds', 'Amount of cross validation folds to perform', value = 5, min = 1),
          numericInput('cv_repeats', 'Amount of cross validation repetitions to perform', value = 10, min = 1),
+         checkboxInput('draw_auroc', 'Draw ROC graph of the first component?', value = TRUE),
          
          tags$hr(),
          #### LAST BUTTON ####
@@ -57,22 +59,23 @@ ui <- fluidPage(
          span(textOutput('error_text'), style='color:red'),
          plotOutput('pca_plot'),
          plotOutput('fisher_plot'),
-         plotOutput('relieff_plot')
+         plotOutput('relieff_plot'),
+         plotOutput('relieff_heatmap'),
+         plotOutput('error_rate_plot'),
+         plotOutput('tuning_plot'),
+         plotOutput('auroc_plot')
       )
    )
 )
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, clientData, session) {
   options(shiny.maxRequestSize = 100*1024^2)
-  
-  if (file.exists('sessionData.RData')){
-    load('sessionData.RData', verbose = TRUE)
-  }
   
   input_error = reactiveVal(TRUE)
   after_fisher = reactiveVal(NULL)
   after_relieff = reactiveVal(NULL)
+  after_splsda = reactiveVal(NULL)
   classes = reactiveVal(NULL)
   data_matrix = reactiveVal(NULL)
   positives = reactiveVal(NULL)
@@ -126,6 +129,7 @@ server <- function(input, output) {
     }
     
     if (!(input_error())){
+      updateNumericInput(session, 'fisher_vars', value = floor(ncol(data_matrix())/10))
       pca_data = apply_pca(data_matrix(), classes(), debug = FALSE)
       output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with all variables'))
       fisher_data = apply_fisher(data_matrix(), positives(), negatives(), features_to_keep = input$fisher_vars, debug = FALSE)
@@ -164,6 +168,11 @@ server <- function(input, output) {
           plot(after_relieff()$sorted_attrs, ylab = 'Score', main = 'ReliefF scores')
           abline(v = input$relieff_vars, col = 'red', lwd = 2)
         })
+        output$relieff_heatmap = NULL
+        if (input$draw_relieff_heatmap){
+          output$relieff_heatmap = renderPlot(heatmap(after_relieff()$data, main = paste('Heatmap of the', input$relieff_vars, 'variables after applying ReliefF')))
+        }
+        updateNumericInput(session, 'relieff_vars', value = floor(ncol(after_fisher()$data)))
         output$error_text = NULL
       } else {
         after_relieff(after_fisher())
@@ -183,6 +192,13 @@ server <- function(input, output) {
           output$error_text = renderText('ERROR: You can not keep more variables than you have. Review the amount of ReliefF variables.')
         } else{
           output$error_text = NULL
+          pca_data = apply_pca(after_relieff()$data, classes(), debug = FALSE)
+          output$pca_plot = renderPlot(plot(pca_data))
+          after_splsda(apply_plsda(after_relieff()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
+          output$tuning_plot = renderPlot(plot(after_splsda()$tune_splsda, col = color.jet(input$components)))
+          if (input$draw_auroc){
+            output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = 1))
+          }
         }
       }
     }
