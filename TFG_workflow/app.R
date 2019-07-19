@@ -41,7 +41,7 @@ ui <- fluidPage(
          tags$hr(),
          #### PCA ####
          tags$h3(paste0('Parameters for sPLS-DA')),
-         numericInput('components', 'Amount of PCA components to extract', value = 10, min = 2),
+         numericInput('components', 'Amount of PCA components to extract', value = 5, min = 2),
          numericInput('cv_folds', 'Amount of cross validation folds to perform', value = 5, min = 1),
          numericInput('cv_repeats', 'Amount of cross validation repetitions to perform', value = 10, min = 1),
          checkboxInput('draw_auroc', 'Draw ROC graph of the first component?', value = TRUE),
@@ -130,6 +130,7 @@ server <- function(input, output, clientData, session) {
     
     if (!(input_error())){
       updateNumericInput(session, 'fisher_vars', value = floor(ncol(data_matrix())/10))
+      updateNumericInput(session, 'relieff_vars', value = floor(ncol(data_matrix())/100))
       pca_data = apply_pca(data_matrix(), classes(), debug = FALSE)
       output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with all variables'))
       fisher_data = apply_fisher(data_matrix(), positives(), negatives(), features_to_keep = input$fisher_vars, debug = FALSE)
@@ -137,7 +138,7 @@ server <- function(input, output, clientData, session) {
       output$fisher_plot = renderPlot({
         plot(fisher_data$to_plot, ylab = 'Score', main = 'Fisher scores')
         abline(v = input$fisher_vars, col = 'red', lwd = 2)
-        })
+      })
     }
   })
   
@@ -172,7 +173,6 @@ server <- function(input, output, clientData, session) {
         if (input$draw_relieff_heatmap){
           output$relieff_heatmap = renderPlot(heatmap(after_relieff()$data, main = paste('Heatmap of the', input$relieff_vars, 'variables after applying ReliefF')))
         }
-        updateNumericInput(session, 'relieff_vars', value = floor(ncol(after_fisher()$data)))
         output$error_text = NULL
       } else {
         after_relieff(after_fisher())
@@ -193,9 +193,13 @@ server <- function(input, output, clientData, session) {
         } else{
           output$error_text = NULL
           pca_data = apply_pca(after_relieff()$data, classes(), debug = FALSE)
-          output$pca_plot = renderPlot(plot(pca_data))
+          output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with the selected variables after ReliefF'))
           after_splsda(apply_plsda(after_relieff()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
-          output$tuning_plot = renderPlot(plot(after_splsda()$tune_splsda, col = color.jet(input$components)))
+	  output$error_rate_plot = renderPlot({
+		  matplot(after_splsda()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components')
+		  legend('topright', c('max.dist', 'centroids.dist', 'mahalanobis.dist'), lty = 1, col = color.mixo(1:3))
+	  })
+          output$tuning_plot = renderPlot(plot(after_splsda()$tune_splsda, col = color.jet(input$components), main = 'Error rates for number of components'))
           if (input$draw_auroc){
             output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = 1))
           }
@@ -203,7 +207,6 @@ server <- function(input, output, clientData, session) {
       }
     }
   })
-  
 }
 
 # Run the application 
