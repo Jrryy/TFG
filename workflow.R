@@ -90,9 +90,8 @@ apply_pca = function(dataset, classes, components = 10, debug = TRUE){
 	return (pca_data)
 }
 
-####### PLS-DA #######
-
-apply_plsda = function(dataset, classes, components = 10, cv_folds = 5, cv_repeats = 10, debug = TRUE){
+####### PLS-DA PERF #######
+apply_plsda_perf = function(dataset, classes, components = 10, cv_folds = 5, cv_repeats = 10, debug = TRUE){
   results = NULL
   
 	plsda_data = plsda(dataset, classes, ncomp=components, scale=FALSE)
@@ -116,16 +115,20 @@ apply_plsda = function(dataset, classes, components = 10, cv_folds = 5, cv_repea
     plot(tune_splsda_data, col = color.jet(components))
     dev.new()
   }
-  
-  final_splsda = splsda(dataset, classes, ncomp = final_ncomp, keepX = select_keepX)
+  return(results)
+}
+
+####### sPLS-DA #######
+apply_splsda = function(dataset, classes, variables_to_keep, components = 10, cv_folds = 5, cv_repeats = 10, debug = TRUE){  
+  final_splsda = splsda(dataset, classes, ncomp = components, keepX = variables_to_keep)
   if (debug){
-    plotIndiv(final_splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'SPLS-DA, final result, components 1 and 2')
+    plotIndiv(final_splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2')
     dev.new()
     if (final_ncomp > 2){
-      plotIndiv(final_splsda, comp = c(1, 3), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'SPLS-DA, final result, components 1 and 3')
+      plotIndiv(final_splsda, comp = c(1, 3), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 3')
       dev.new()
       
-      plotIndiv(final_splsda, comp = c(2, 3), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'SPLS-DA, final result, components 2 and 3')
+      plotIndiv(final_splsda, comp = c(2, 3), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 2 and 3')
       dev.new()
     }
     auroc(final_splsda, roc.comp = 1)
@@ -165,7 +168,9 @@ apply_workflow = function(dataset, classes, fisher_variables = 5000, relieff_var
 
 	apply_pca(after_relieff, classes, debug = debug)
 	
-	final_results = apply_plsda(after_relieff, classes, debug = debug)
+	after_plsda_perf = apply_plsda_perf(after_relieff, classes, debug = debug)
+	
+	final_results = apply_splsda(after_relieff, classes, after_plsda_perf$tune_splsda$choice.ncomp$ncomp, debug = debug)
 	
 	return(final_results)
 }

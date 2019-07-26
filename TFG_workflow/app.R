@@ -25,7 +25,7 @@ ui <- fluidPage(
          tags$hr(),
          #### Fisher ####
          tags$h3(paste0('Parameters for Fisher scoring')),
-         numericInput('fisher_vars', 'Amount of variables to keep:', min = 1, value = 1),
+         numericInput('fisher_vars', 'Amount of variables to keep:', min = 1, value = 5000),
          actionButton('submit_fisher', 'Apply Fisher filter'),
          
          tags$hr(),
@@ -41,14 +41,16 @@ ui <- fluidPage(
          tags$hr(),
          #### PCA ####
          tags$h3(paste0('Parameters for sPLS-DA')),
-         numericInput('components', 'Amount of PCA components to extract', value = 5, min = 2),
+         numericInput('components', 'Amount of PCA components to start calculating with', value = 5, min = 2),
          numericInput('cv_folds', 'Amount of cross validation folds to perform', value = 5, min = 1),
          numericInput('cv_repeats', 'Amount of cross validation repetitions to perform', value = 10, min = 1),
-         checkboxInput('draw_auroc', 'Draw ROC graph of the first component?', value = TRUE),
+         checkboxInput('draw_indiv_plot', 'Draw a representation of the samples in the two first components?', value = TRUE),
+         checkboxInput('draw_auroc', 'Draw ROC graphs?', value = FALSE),
+         actionButton('submit_splsda', 'Apply sPLS-DA'),
          
          tags$hr(),
          #### LAST BUTTON ####
-         actionButton('submit', 'Submit')
+         actionButton('submit', 'Save output as pdf')
          ),
       
       # Show a plot of the generated distribution
@@ -63,6 +65,7 @@ ui <- fluidPage(
          plotOutput('relieff_heatmap'),
          plotOutput('error_rate_plot'),
          plotOutput('tuning_plot'),
+         plotOutput('individues_plot'),
          plotOutput('auroc_plot')
       )
    )
@@ -75,6 +78,7 @@ server <- function(input, output, clientData, session) {
   input_error = reactiveVal(TRUE)
   after_fisher = reactiveVal(NULL)
   after_relieff = reactiveVal(NULL)
+  after_plsda_perf = reactiveVal(NULL)
   after_splsda = reactiveVal(NULL)
   classes = reactiveVal(NULL)
   data_matrix = reactiveVal(NULL)
@@ -182,7 +186,7 @@ server <- function(input, output, clientData, session) {
     }
   })
   
-  #### CALCULATE sPLS-DA ####
+  #### CALCULATE PLS-DA PERF ####
   observeEvent(input$submit_relieff, {
     if (!(input_error())){
       if (is.null(after_relieff())){
@@ -194,16 +198,27 @@ server <- function(input, output, clientData, session) {
           output$error_text = NULL
           pca_data = apply_pca(after_relieff()$data, classes(), debug = FALSE)
           output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with the selected variables after ReliefF'))
-          after_splsda(apply_plsda(after_relieff()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
+          after_plsda_perf(apply_plsda_perf(after_relieff()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
 	  output$error_rate_plot = renderPlot({
-		  matplot(after_splsda()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components')
+		  matplot(after_plsda_perf()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components', ylab = 'Balanced Error Rate')
 		  legend('topright', c('max.dist', 'centroids.dist', 'mahalanobis.dist'), lty = 1, col = color.mixo(1:3))
 	  })
-          output$tuning_plot = renderPlot(plot(after_splsda()$tune_splsda, col = color.jet(input$components), main = 'Error rates for number of components'))
-          if (input$draw_auroc){
-            output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = 1))
-          }
+          output$tuning_plot = renderPlot(plot(after_plsda_perf()$tune_splsda, col = color.jet(input$components), main = 'Error rates for number of components'))
         }
+      }
+    }
+  })
+  
+  #### CALCULATE sPLS-DA ####
+  observeEvent(input$submit_splsda, {
+    if (!(input_error())){
+      if (is.null(after_plsda_perf())){
+        output$error_text = renderText('Please apply the ReliefF step before trying to apply sPLS-DA.')
+      } else {
+        output$error_text = NULL
+        after_splsda(apply_splsda(after_relieff()$data, classes(), after_plsda_perf()$tune_splsda$choice.ncomp$ncomp, components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
+        output$individue_plot = renderPlot(after_splsda()$splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2')
+        
       }
     }
   })
