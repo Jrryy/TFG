@@ -46,6 +46,8 @@ ui <- fluidPage(
          numericInput('cv_repeats', 'Amount of cross validation repetitions to perform', value = 10, min = 1),
          checkboxInput('draw_indiv_plot', 'Draw a representation of the samples in the two first components?', value = TRUE),
          checkboxInput('draw_auroc', 'Draw ROC graphs?', value = FALSE),
+         checkboxInput('draw_cim', 'Draw clustered image graph?', value = TRUE),
+         checkboxInput('draw_loadings', 'Draw the contribution of each selected variable?', value = TRUE)
          actionButton('submit_splsda', 'Apply sPLS-DA'),
          
          tags$hr(),
@@ -66,7 +68,9 @@ ui <- fluidPage(
          plotOutput('error_rate_plot'),
          plotOutput('tuning_plot'),
          plotOutput('individues_plot'),
-         plotOutput('auroc_plot')
+         plotOutput('auroc_plot'),
+         plotOutput('cim'),
+         plotOutput('loadings')
       )
    )
 )
@@ -216,9 +220,25 @@ server <- function(input, output, clientData, session) {
         output$error_text = renderText('Please apply the ReliefF step before trying to apply sPLS-DA.')
       } else {
         output$error_text = NULL
-        after_splsda(apply_splsda(after_relieff()$data, classes(), after_plsda_perf()$tune_splsda$choice.ncomp$ncomp, components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
-        output$individue_plot = renderPlot(after_splsda()$splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2')
-        
+        final_components = after_plsda_perf()$final_ncomp
+        features_to_keep = after_plsda_perf()$features_to_keep
+        after_splsda(apply_splsda(after_relieff()$data, classes(), features_to_keep, components = final_components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
+        if (input$draw_indiv_plot){
+          output$individues_plot = renderPlot(plotIndiv(after_splsda()$splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2'))
+        }
+        if (input$draw_auroc){
+          output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = i))
+        }
+        if (input$draw_cim){
+          conds = levels(factor(classes))
+          cond.col = c(conds[1] = 'red', conds[2] = 'green')
+          output$cim = renderPlot({
+            cim(after_splsda()$splsda, row.sideColors = cond.col[classes], legend = list())
+          })
+        }
+        if (input$draw_loadings){
+          output$loadings = renderPlot(plotLoadings(after_splsda()$splsda, contrib = 'max', method = 'main'))
+        }
       }
     }
   })

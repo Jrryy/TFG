@@ -3,15 +3,18 @@ library(parallel)
 if (!'CORElearn' %in% installed.packages()){
 	install.packages('CORElearn')
 }
-
 library(CORElearn)
 
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 if (!'mixOmics' %in% installed.packages()){
 	BiocManager::install("mixOmics", ask=FALSE)
 }
-
 library(mixOmics)
+
+if (!'rgl' %in% installed.packages()){
+  install.packages('rgl')
+}
+library(rgl)
 
 ####### FISHER #######
 
@@ -111,6 +114,8 @@ apply_plsda_perf = function(dataset, classes, components = 10, cv_folds = 5, cv_
   final_ncomp = tune_splsda_data$choice.ncomp$ncomp
   select_keepX = tune_splsda_data$choice.keepX[1:final_ncomp]
   results$tune_splsda = tune_splsda_data
+  results$features_to_keep = select_keepX
+  results$final_ncomp = final_ncomp
   if (debug){
     plot(tune_splsda_data, col = color.jet(components))
     dev.new()
@@ -119,7 +124,9 @@ apply_plsda_perf = function(dataset, classes, components = 10, cv_folds = 5, cv_
 }
 
 ####### sPLS-DA #######
-apply_splsda = function(dataset, classes, variables_to_keep, components = 10, cv_folds = 5, cv_repeats = 10, debug = TRUE){  
+apply_splsda = function(dataset, classes, variables_to_keep, components = 10, cv_folds = 5, cv_repeats = 10, debug = TRUE){
+  results = NULL
+  
   final_splsda = splsda(dataset, classes, ncomp = components, keepX = variables_to_keep)
   if (debug){
     plotIndiv(final_splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2')
@@ -143,7 +150,7 @@ apply_splsda = function(dataset, classes, variables_to_keep, components = 10, cv
     }
   }
   
-  final_perf = perf(final_splsda, validation = 'Mfold', folds = cv_folds, dist = 'max.dist', nrepeat = cv_repeats)
+  final_perf = perf(final_splsda, validation = 'Mfold', folds = cv_folds, dist = 'max.dist', nrepeat = cv_repeats, progressBar = debug)
   if (debug){
     matplot(final_perf$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate of the final model')
     legend('topright', c('max.dist', 'centroids.dist', 'mahalanobis.dist'), lty = 1, col = color.mixo(1:3))
@@ -170,7 +177,7 @@ apply_workflow = function(dataset, classes, fisher_variables = 5000, relieff_var
 	
 	after_plsda_perf = apply_plsda_perf(after_relieff, classes, debug = debug)
 	
-	final_results = apply_splsda(after_relieff, classes, after_plsda_perf$tune_splsda$choice.ncomp$ncomp, debug = debug)
+	final_results = apply_splsda(after_relieff, classes, after_plsda_perf$features_to_keep, components = after_plsda_perf$final_ncomp, debug = debug)
 	
 	return(final_results)
 }
