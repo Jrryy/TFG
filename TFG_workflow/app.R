@@ -47,7 +47,7 @@ ui <- fluidPage(
          checkboxInput('draw_indiv_plot', 'Draw a representation of the samples in the two first components?', value = TRUE),
          checkboxInput('draw_auroc', 'Draw ROC graphs?', value = FALSE),
          checkboxInput('draw_cim', 'Draw clustered image graph?', value = TRUE),
-         checkboxInput('draw_loadings', 'Draw the contribution of each selected variable?', value = TRUE)
+         checkboxInput('draw_loadings', 'Draw the contribution of each selected variable?', value = TRUE),
          actionButton('submit_splsda', 'Apply sPLS-DA'),
          
          tags$hr(),
@@ -227,17 +227,18 @@ server <- function(input, output, clientData, session) {
           output$individues_plot = renderPlot(plotIndiv(after_splsda()$splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2'))
         }
         if (input$draw_auroc){
-          output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = i))
+          output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = 1))
         }
         if (input$draw_cim){
-          conds = levels(factor(classes))
-          cond.col = c(conds[1] = 'red', conds[2] = 'green')
+          conds = levels(factor(classes()))
+          cond.col = c('red', 'green')
+          names(cond.col) = conds
           output$cim = renderPlot({
-            cim(after_splsda()$splsda, row.sideColors = cond.col[classes], legend = list())
+            cim(after_splsda()$splsda, row.sideColors = cond.col[classes()], legend = list())
           })
         }
         if (input$draw_loadings){
-          output$loadings = renderPlot(plotLoadings(after_splsda()$splsda, contrib = 'max', method = 'main'))
+          output$loadings = renderPlot(plotLoadings(after_splsda()$splsda, contrib = 'max', method = 'mean'))
         }
       }
     }
