@@ -1,0 +1,32 @@
+---
+title: "Workflow results report"
+output: pdf_document
+params:
+  original_data: NA
+  classes: NA
+  positives: NA
+  negatives: NA
+  original_pca_data: NA
+  original_fisher_data: NA
+---
+```{r, include=FALSE}
+options(tinytex.verbose = FALSE)
+knitr::opts_chunk$set(echo = FALSE) 
+```
+## Initial state
+### Data
+Number of genes: `r dim(params$original_data)[2]`\newline
+Number of samples: `r dim(params$original_data)[1]`\newline
+Classes: `r levels(factor(params$classes))` \newline
+Number of samples of class "`r levels(factor(params$classes))[1]`": `r length(params$positives)`\newline
+Number of samples of class "`r levels(factor(params$classes))[2]`": `r length(params$negatives)`\newline
+Principal components of the original data:
+```{r}
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
