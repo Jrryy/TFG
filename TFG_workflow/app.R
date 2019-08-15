@@ -52,7 +52,7 @@ ui <- fluidPage(
          
          tags$hr(),
          #### LAST BUTTON ####
-         actionButton('submit', 'Save output as pdf')
+         downloadButton('download', 'Save results as pdf')
          ),
       
       # Show a plot of the generated distribution
@@ -80,6 +80,8 @@ server <- function(input, output, clientData, session) {
   options(shiny.maxRequestSize = 100*1024^2)
   
   input_error = reactiveVal(TRUE)
+  original_pca_data = reactiveVal(NULL)
+  original_fisher_data = reactiveVal(NULL)
   after_fisher = reactiveVal(NULL)
   after_relieff = reactiveVal(NULL)
   after_plsda_perf = reactiveVal(NULL)
@@ -108,8 +110,9 @@ server <- function(input, output, clientData, session) {
         classes(csv_data$classes)
         classes_position = match('classes', colnames(csv_data))
         data_matrix(as.matrix.data.frame(csv_data[-classes_position]))
-        positives(which(classes == classes[1]))
-        negatives(which(classes != classes[1]))
+        classes_names = levels(factor(classes()))
+        positives(which(classes == classes_names[1]))
+        negatives(which(classes == classes_names[2]))
       }
     } else if (endsWith(dataset_file$name, ".RData")){
       dataset = load(dataset_file$datapath)
@@ -127,8 +130,9 @@ server <- function(input, output, clientData, session) {
         classes_index = match('classes', dataset)
         classes(get(dataset[classes_index]))
         data_matrix(as.matrix.data.frame(get(dataset[3 - classes_index])))
-        positives(which(classes() == classes()[1]))
-        negatives(which(classes() != classes()[1]))
+        classes_names = levels(factor(classes()))
+        positives(which(classes() == classes_names[1]))
+        negatives(which(classes() == classes_names[2]))
       }
     } else {
       # output$waiting_text = NULL
@@ -137,14 +141,15 @@ server <- function(input, output, clientData, session) {
     }
     
     if (!(input_error())){
+      after_splsda(NULL)
       updateNumericInput(session, 'fisher_vars', value = floor(ncol(data_matrix())/10))
       updateNumericInput(session, 'relieff_vars', value = floor(ncol(data_matrix())/100))
-      pca_data = apply_pca(data_matrix(), classes(), debug = FALSE)
-      output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with all variables'))
-      fisher_data = apply_fisher(data_matrix(), positives(), negatives(), features_to_keep = input$fisher_vars, debug = FALSE)
+      original_pca_data(apply_pca(data_matrix(), classes(), debug = FALSE))
+      output$pca_plot = renderPlot(plot(original_pca_data(), main = 'Principal components with all variables'))
+      original_fisher_data(apply_fisher(data_matrix(), positives(), negatives(), features_to_keep = input$fisher_vars, debug = FALSE))
       # output$waiting_text = renderText('Drawing Fisher scores plot...')
       output$fisher_plot = renderPlot({
-        plot(fisher_data$to_plot, ylab = 'Score', main = 'Fisher scores')
+        plot(original_fisher_data()$to_plot, ylab = 'Score', main = 'Fisher scores')
         abline(v = input$fisher_vars, col = 'red', lwd = 2)
       })
     }
@@ -168,6 +173,7 @@ server <- function(input, output, clientData, session) {
   #### CALCULATE RELIEFF ####
   observeEvent(input$submit_fisher, {
     if (!(input_error())){
+      after_splsda(NULL)
       after_fisher(apply_fisher(data_matrix(), positives(), negatives(), features_to_keep = input$fisher_vars, debug = FALSE))
       pca_data = apply_pca(after_fisher()$data, classes(), debug = FALSE)
       output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with the selected variables after Fisher scoring'))
@@ -199,6 +205,7 @@ server <- function(input, output, clientData, session) {
         if (input$fisher_vars < input$relieff_vars){
           output$error_text = renderText('ERROR: You can not keep more variables than you have. Review the amount of ReliefF variables.')
         } else{
+          after_splsda(NULL)
           output$error_text = NULL
           pca_data = apply_pca(after_relieff()$data, classes(), debug = FALSE)
           output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with the selected variables after ReliefF'))
@@ -243,6 +250,21 @@ server <- function(input, output, clientData, session) {
       }
     }
   })
+  
+  output$download = downloadHandler(
+    filename = 'results.pdf',
+    content = function(file) {
+      tempReport = file.path(tempdir(), "report.Rmd")
+      file.copy("../report.Rmd", tempReport, overwrite = TRUE)
+      params = list(original_data = data_matrix(),
+                    classes = classes(),
+                    positives = positives(),
+                    negatives = negatives(),
+                    original_pca_data = original_pca_data(),
+                    original_fisher_data = original_fisher_data())
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params, envir = new.env(parent = globalenv()))
+    })
 }
 
 # Run the application 
