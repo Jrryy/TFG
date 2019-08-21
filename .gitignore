@@ -36,7 +36,8 @@ vignettes/*.pdf
 rsconnect/
 
 # my annotations should not be uploaded
-*.txt
+# But they will be for now
+# *.txt
 
 
 .Rproj.user

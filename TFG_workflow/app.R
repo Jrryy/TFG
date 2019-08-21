@@ -9,6 +9,11 @@
 
 library(shiny)
 
+if (!'rmarkdown' %in% installed.packages()){
+  install.packages('rmarkdown')
+}
+library(rmarkdown)
+
 source('../workflow.R')
 
 # Define UI for application that draws a histogram
@@ -83,6 +88,7 @@ server <- function(input, output, clientData, session) {
   original_pca_data = reactiveVal(NULL)
   original_fisher_data = reactiveVal(NULL)
   after_fisher = reactiveVal(NULL)
+  after_fisher_pca_data = reactiveVal(NULL)
   after_relieff = reactiveVal(NULL)
   after_plsda_perf = reactiveVal(NULL)
   after_splsda = reactiveVal(NULL)
@@ -175,8 +181,8 @@ server <- function(input, output, clientData, session) {
     if (!(input_error())){
       after_splsda(NULL)
       after_fisher(apply_fisher(data_matrix(), positives(), negatives(), features_to_keep = input$fisher_vars, debug = FALSE))
-      pca_data = apply_pca(after_fisher()$data, classes(), debug = FALSE)
-      output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with the selected variables after Fisher scoring'))
+      after_fisher_pca_data(apply_pca(after_fisher()$data, classes(), debug = FALSE))
+      output$pca_plot = renderPlot(plot(after_fisher_pca_data(), main = 'Principal components with the selected variables after Fisher scoring'))
       if (input$use_relieff){
         after_relieff(apply_relieff(after_fisher()$data, classes(), features_to_keep = input$relieff_vars, iterations = input$relieff_iters, estimator = input$relieff_method, debug = FALSE))
         output$relieff_plot = renderPlot({
@@ -256,12 +262,16 @@ server <- function(input, output, clientData, session) {
     content = function(file) {
       tempReport = file.path(tempdir(), "report.Rmd")
       file.copy("../report.Rmd", tempReport, overwrite = TRUE)
-      params = list(original_data = data_matrix(),
+      params = list(input = input,
+                    original_data = data_matrix(),
                     classes = classes(),
                     positives = positives(),
                     negatives = negatives(),
                     original_pca_data = original_pca_data(),
-                    original_fisher_data = original_fisher_data())
+                    original_fisher_data = original_fisher_data(),
+                    after_fisher_pca_data = after_fisher_pca_data(),
+                    after_fisher_data = after_fisher(),
+                    after_relieff_data = after_relieff())
       rmarkdown::render(tempReport, output_file = file,
                         params = params, envir = new.env(parent = globalenv()))
     })

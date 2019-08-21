@@ -2,31 +2,66 @@
 title: "Workflow results report"
 output: pdf_document
 params:
+  input: NA
   original_data: NA
   classes: NA
   positives: NA
   negatives: NA
   original_pca_data: NA
   original_fisher_data: NA
+  after_fisher_pca_data: NA
+  after_fisher_data: NA
+  after_relieff_data: NA
 ---
 ```{r, include=FALSE}
 options(tinytex.verbose = FALSE)
+library(knitr)
+knit_engines$set(asis = function(options) {
+  if (options$echo && options$eval) knit_child(text = options$code)
+})
 knitr::opts_chunk$set(echo = FALSE) 
 ```
-## Initial state
+## Initial state and Fisher filter
 ### Data
 Number of genes: `r dim(params$original_data)[2]`\newline
 Number of samples: `r dim(params$original_data)[1]`\newline
 Classes: `r levels(factor(params$classes))` \newline
 Number of samples of class "`r levels(factor(params$classes))[1]`": `r length(params$positives)`\newline
-Number of samples of class "`r levels(factor(params$classes))[2]`": `r length(params$negatives)`\newline
-Principal components of the original data:
-```{r}
+Number of samples of class "`r levels(factor(params$classes))[2]`": `r length(params$negatives)`
+Number of genes kept after Fisher: `r params$input$fisher_vars`\newline
 
+###Plots
+
+```{r}
+plot(params$original_pca_data, main = 'Principal components with all variables')
 ```
 
-## Including Plots
+```{r}
+plot(params$original_fisher_data$to_plot, ylab = 'Score', main = 'Fisher scores')
+abline(v = params$input$fisher_vars, col = 'red', lwd = 2)
+```
 
-You can also embed plots, for example:
+```{r}
+plot(params$after_fisher_pca_data, main = 'Principal components with the selected variables after Fisher scoring')
+```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{asis, echo=params$input$use_relieff, eval=params$input$use_relieff}
+## ReliefF
+### Data
+Number of genes kept after ReliefF: `r params$input$relieff_vars`\newline
+Number of iterations made: `r if (params$input$relieff_iters == 0) { params$input$fisher_vars } else if (params$input$relieff_iters == -1) { floor(log(params$input$fisher_vars)) } else { floor(sqrt(params$input$fisher_vars)) }`\newline
+Algorithm chosen to calculate the scores: `r params$input$relieff_method`\newline
+
+### Plots
+```
+
+```{r, eval=params$input$use_relieff}
+plot(params$after_relieff_data$sorted_attrs, ylab = 'Score', main = 'ReliefF scores')
+abline(v = params$input$relieff_vars, col = 'red', lwd = 2)
+```
+
+```{r, eval=params$input$draw_relieff_heatmap}
+heatmap(params$after_relieff_data$data, main = paste('Heatmap of the', params$input$relieff_vars, 'variables after applying ReliefF'))
+
+```
