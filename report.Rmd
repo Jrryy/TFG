@@ -11,7 +11,10 @@ params:
   original_fisher_data: NA
   after_fisher_pca_data: NA
   after_fisher_data: NA
+  after_relieff_pca_data: NA
   after_relieff_data: NA
+  after_plsda_perf: NA
+  after_splsda: NA
 ---
 ```{r, include=FALSE}
 options(tinytex.verbose = FALSE)
@@ -27,19 +30,21 @@ Number of genes: `r dim(params$original_data)[2]`\newline
 Number of samples: `r dim(params$original_data)[1]`\newline
 Classes: `r levels(factor(params$classes))` \newline
 Number of samples of class "`r levels(factor(params$classes))[1]`": `r length(params$positives)`\newline
-Number of samples of class "`r levels(factor(params$classes))[2]`": `r length(params$negatives)`
+Number of samples of class "`r levels(factor(params$classes))[2]`": `r length(params$negatives)`\newline
 Number of genes kept after Fisher: `r params$input$fisher_vars`\newline
 
-###Plots
+### Plots
 
 ```{r}
 plot(params$original_pca_data, main = 'Principal components with all variables')
 ```
 
+
 ```{r}
 plot(params$original_fisher_data$to_plot, ylab = 'Score', main = 'Fisher scores')
 abline(v = params$input$fisher_vars, col = 'red', lwd = 2)
 ```
+
 
 ```{r}
 plot(params$after_fisher_pca_data, main = 'Principal components with the selected variables after Fisher scoring')
@@ -56,12 +61,59 @@ Algorithm chosen to calculate the scores: `r params$input$relieff_method`\newlin
 ### Plots
 ```
 
+
 ```{r, eval=params$input$use_relieff}
 plot(params$after_relieff_data$sorted_attrs, ylab = 'Score', main = 'ReliefF scores')
 abline(v = params$input$relieff_vars, col = 'red', lwd = 2)
 ```
 
-```{r, eval=params$input$draw_relieff_heatmap}
-heatmap(params$after_relieff_data$data, main = paste('Heatmap of the', params$input$relieff_vars, 'variables after applying ReliefF'))
 
+```{r, eval=(params$input$draw_relieff_heatmap && params$input$use_relieff)}
+heatmap(params$after_relieff_data$data, main = paste('Heatmap of the', params$input$relieff_vars, 'variables after applying ReliefF'))
+```
+
+
+```{r, eval=params$input$use_relieff}
+plot(params$after_relieff_pca_data, main = 'Principal components with the selected variables after ReliefF')
+```
+
+## sPLS-DA
+### Data
+Number of components to do the perfectioning: `r params$input$components`\newline
+Number of cross validation folds performed: `r params$input$cv_folds`\newline
+Number of cross validation repetitions performed: `r params$input$cv_repeats`\newline
+
+### Plots
+
+```{r}
+matplot(params$after_plsda_perf$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components', ylab = 'Balanced Error Rate')
+legend('topright', c('max.dist', 'centroids.dist', 'mahalanobis.dist'), lty = 1, col = color.mixo(1:3))
+```
+
+
+```{r}
+plot(params$after_plsda_perf$tune_splsda, col = color.jet(params$input$components), main = 'Error rates for number of components')
+```
+
+
+```{r, eval=params$input$draw_indiv_plot}
+plotIndiv(params$after_splsda$splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2')
+```
+
+
+```{r, eval=params$input$draw_auroc}
+auroc(params$after_splsda$splsda, roc.comp = 1)
+```
+
+
+```{r, eval=params$input$draw_cim}
+conds = levels(factor(params$classes))
+cond.col = c('red', 'green')
+names(cond.col) = conds
+cim(params$after_splsda$splsda, row.sideColors = cond.col[params$classes], legend = list())
+```
+
+
+```{r, eval=params$input$draw_loadings}
+plotLoadings(params$after_splsda$splsda, contrib = 'max', method = 'mean')
 ```

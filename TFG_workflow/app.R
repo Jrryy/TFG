@@ -90,6 +90,7 @@ server <- function(input, output, clientData, session) {
   after_fisher = reactiveVal(NULL)
   after_fisher_pca_data = reactiveVal(NULL)
   after_relieff = reactiveVal(NULL)
+  after_relieff_pca_data = reactiveVal(NULL)
   after_plsda_perf = reactiveVal(NULL)
   after_splsda = reactiveVal(NULL)
   classes = reactiveVal(NULL)
@@ -213,8 +214,8 @@ server <- function(input, output, clientData, session) {
         } else{
           after_splsda(NULL)
           output$error_text = NULL
-          pca_data = apply_pca(after_relieff()$data, classes(), debug = FALSE)
-          output$pca_plot = renderPlot(plot(pca_data, main = 'Principal components with the selected variables after ReliefF'))
+          after_relieff_pca_data(apply_pca(after_relieff()$data, classes(), debug = FALSE))
+          output$pca_plot = renderPlot(plot(after_relieff_pca_data(), main = 'Principal components with the selected variables after ReliefF'))
           after_plsda_perf(apply_plsda_perf(after_relieff()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
 	  output$error_rate_plot = renderPlot({
 		  matplot(after_plsda_perf()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components', ylab = 'Balanced Error Rate')
@@ -271,7 +272,10 @@ server <- function(input, output, clientData, session) {
                     original_fisher_data = original_fisher_data(),
                     after_fisher_pca_data = after_fisher_pca_data(),
                     after_fisher_data = after_fisher(),
-                    after_relieff_data = after_relieff())
+                    after_relieff_pca_data = after_relieff_pca_data(),
+                    after_relieff_data = after_relieff(),
+                    after_plsda_perf = after_plsda_perf(),
+                    after_splsda = after_splsda())
       rmarkdown::render(tempReport, output_file = file,
                         params = params, envir = new.env(parent = globalenv()))
     })
