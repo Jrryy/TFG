@@ -1,6 +1,8 @@
 ---
 title: "Workflow results report"
-output: pdf_document
+output: 
+  pdf_document:
+    fig_crop: no
 params:
   input: NA
   original_data: NA
@@ -102,18 +104,22 @@ plotIndiv(params$after_splsda$splsda, comp = c(1, 2), ind.names = FALSE, legend 
 
 
 ```{r, eval=params$input$draw_auroc}
-auroc(params$after_splsda$splsda, roc.comp = 1)
+ncomp = params$after_plsda_perf$final_ncomp
+par(mfcol=c(1, ncomp))
+for (i in seq(ncomp)){
+  auroc(params$after_splsda$splsda, roc.comp = i)
+}
 ```
 
-
-```{r, eval=params$input$draw_cim}
-conds = levels(factor(params$classes))
-cond.col = c('red', 'green')
-names(cond.col) = conds
-cim(params$after_splsda$splsda, row.sideColors = cond.col[params$classes], legend = list())
+```{asis, echo=params$input$draw_cim, eval=params$input$draw_cim}
+![](~/TFG/TFG/TFG_workflow/cim.png)
 ```
 
 
 ```{r, eval=params$input$draw_loadings}
-plotLoadings(params$after_splsda$splsda, contrib = 'max', method = 'mean')
+ncomp = params$after_plsda_perf$final_ncomp
+par(mfcol=c(1, ncomp))
+for (i in seq(ncomp)){
+  plotLoadings(params$after_splsda$splsda, comp=i, contrib = 'max', method = 'mean')
+}
 ```

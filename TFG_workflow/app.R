@@ -14,6 +14,11 @@ if (!'rmarkdown' %in% installed.packages()){
 }
 library(rmarkdown)
 
+if (!'png' %in% installed.packages()){
+  install.packages('png')
+}
+library(png)
+
 source('../workflow.R')
 
 # Define UI for application that draws a histogram
@@ -74,7 +79,7 @@ ui <- fluidPage(
          plotOutput('tuning_plot'),
          plotOutput('individues_plot'),
          plotOutput('auroc_plot'),
-         plotOutput('cim'),
+         imageOutput('cim', height = '800px'),
          plotOutput('loadings')
       )
    )
@@ -243,13 +248,17 @@ server <- function(input, output, clientData, session) {
         if (input$draw_auroc){
           output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = 1))
         }
+        conds = levels(factor(classes()))
+        cond.col = c('red', 'green')
+        names(cond.col) = conds
+        png("cim.png", height = 800, width = 800)
+        cim(after_splsda()$splsda, row.sideColors = cond.col[classes()], legend = list())
+        dev.off()
         if (input$draw_cim){
-          conds = levels(factor(classes()))
-          cond.col = c('red', 'green')
-          names(cond.col) = conds
-          output$cim = renderPlot({
-            cim(after_splsda()$splsda, row.sideColors = cond.col[classes()], legend = list())
-          })
+          output$cim = renderImage({
+            list(src="cim.png")
+            },
+            deleteFile = FALSE)
         }
         if (input$draw_loadings){
           output$loadings = renderPlot(plotLoadings(after_splsda()$splsda, contrib = 'max', method = 'mean'))
