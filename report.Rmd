@@ -112,7 +112,7 @@ for (i in seq(ncomp)){
 ```
 
 ```{asis, echo=params$input$draw_cim, eval=params$input$draw_cim}
-![](~/TFG/TFG/TFG_workflow/cim.png)
+![](TFG_workflow/cim.png)
 ```
 
 
