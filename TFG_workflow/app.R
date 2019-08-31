@@ -198,6 +198,8 @@ server <- function(input, output, clientData, session) {
         output$relieff_heatmap = NULL
         if (input$draw_relieff_heatmap){
           output$relieff_heatmap = renderPlot(heatmap(after_relieff()$data, main = paste('Heatmap of the', input$relieff_vars, 'variables after applying ReliefF')))
+        } else {
+          output$relieff_heatmap = NULL
         }
         output$error_text = NULL
       } else {
@@ -211,23 +213,31 @@ server <- function(input, output, clientData, session) {
   #### CALCULATE PLS-DA PERF ####
   observeEvent(input$submit_relieff, {
     if (!(input_error())){
-      if (is.null(after_relieff())){
+      # If there aren't errors in the input:
+      if (is.null(after_relieff()) && input$use_relieff){
+        # ERROR if there's no after_relieff data
         output$error_text = renderText('Please apply the Fisher filter before trying to apply ReliefF to your data.')
       } else {
-        if (input$fisher_vars < input$relieff_vars){
-          output$error_text = renderText('ERROR: You can not keep more variables than you have. Review the amount of ReliefF variables.')
-        } else{
-          after_splsda(NULL)
-          output$error_text = NULL
-          after_relieff_pca_data(apply_pca(after_relieff()$data, classes(), debug = FALSE))
-          output$pca_plot = renderPlot(plot(after_relieff_pca_data(), main = 'Principal components with the selected variables after ReliefF'))
-          after_plsda_perf(apply_plsda_perf(after_relieff()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
-	  output$error_rate_plot = renderPlot({
-		  matplot(after_plsda_perf()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components', ylab = 'Balanced Error Rate')
-		  legend('topright', c('max.dist', 'centroids.dist', 'mahalanobis.dist'), lty = 1, col = color.mixo(1:3))
-	  })
-          output$tuning_plot = renderPlot(plot(after_plsda_perf()$tune_splsda, col = color.jet(input$components), main = 'Error rates for number of components'))
+        if (input$use_relieff){
+          # If we want to use relieff, calculate all the related data
+          if (input$fisher_vars < input$relieff_vars){
+            output$error_text = renderText('ERROR: You can not keep more variables than you have. Review the amount of ReliefF variables.')
+          } else{
+            after_splsda(NULL)
+            output$error_text = NULL
+            after_relieff_pca_data(apply_pca(after_relieff()$data, classes(), debug = FALSE))
+            output$pca_plot = renderPlot(plot(after_relieff_pca_data(), main = 'Principal components with the selected variables after ReliefF'))
+            after_plsda_perf(apply_plsda_perf(after_relieff()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
+          }
+        } else {
+          # Else, we will have to replace the relieff data with the data from Fisher
+          after_plsda_perf(apply_plsda_perf(after_fisher()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
         }
+    	  output$error_rate_plot = renderPlot({
+    		  matplot(after_plsda_perf()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components', ylab = 'Balanced Error Rate')
+    		  legend('topright', c('max.dist', 'centroids.dist', 'mahalanobis.dist'), lty = 1, col = color.mixo(1:3))
+    	  })
+        output$tuning_plot = renderPlot(plot(after_plsda_perf()$tune_splsda, col = color.jet(input$components), main = 'Error rates for number of components'))
       }
     }
   })
@@ -244,9 +254,13 @@ server <- function(input, output, clientData, session) {
         after_splsda(apply_splsda(after_relieff()$data, classes(), features_to_keep, components = final_components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
         if (input$draw_indiv_plot){
           output$individues_plot = renderPlot(plotIndiv(after_splsda()$splsda, comp = c(1, 2), ind.names = FALSE, legend = TRUE, ellipse = TRUE, title = 'sPLS-DA, final result, components 1 and 2'))
+        } else {
+          output$individues_plot = NULL
         }
         if (input$draw_auroc){
           output$auroc_plot = renderPlot(auroc(after_splsda()$splsda, roc.comp = 1))
+        } else {
+          output$auroc_plot = NULL
         }
         conds = levels(factor(classes()))
         cond.col = c('red', 'green')
@@ -259,9 +273,13 @@ server <- function(input, output, clientData, session) {
             list(src="cim.png")
             },
             deleteFile = FALSE)
+        } else {
+          output$cim = NULL
         }
         if (input$draw_loadings){
           output$loadings = renderPlot(plotLoadings(after_splsda()$splsda, contrib = 'max', method = 'mean'))
+        } else {
+          output$loading = NULL
         }
       }
     }
@@ -270,8 +288,6 @@ server <- function(input, output, clientData, session) {
   output$download = downloadHandler(
     filename = 'results.pdf',
     content = function(file) {
-      tempReport = file.path(tempdir(), "report.Rmd")
-      file.copy("../report.Rmd", tempReport, overwrite = TRUE)
       params = list(input = input,
                     original_data = data_matrix(),
                     classes = classes(),
@@ -285,7 +301,7 @@ server <- function(input, output, clientData, session) {
                     after_relieff_data = after_relieff(),
                     after_plsda_perf = after_plsda_perf(),
                     after_splsda = after_splsda())
-      rmarkdown::render(tempReport, output_file = file,
+      rmarkdown::render("../report.Rmd", output_file = file,
                         params = params, envir = new.env(parent = globalenv()))
     })
 }

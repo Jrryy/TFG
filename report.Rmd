@@ -3,6 +3,7 @@ title: "Workflow results report"
 output: 
   pdf_document:
     fig_crop: no
+    fig_caption: no
 params:
   input: NA
   original_data: NA
@@ -105,7 +106,6 @@ plotIndiv(params$after_splsda$splsda, comp = c(1, 2), ind.names = FALSE, legend 
 
 ```{r, eval=params$input$draw_auroc}
 ncomp = params$after_plsda_perf$final_ncomp
-par(mfcol=c(1, ncomp))
 for (i in seq(ncomp)){
   auroc(params$after_splsda$splsda, roc.comp = i)
 }
@@ -118,8 +118,7 @@ for (i in seq(ncomp)){
 
 ```{r, eval=params$input$draw_loadings}
 ncomp = params$after_plsda_perf$final_ncomp
-par(mfcol=c(1, ncomp))
 for (i in seq(ncomp)){
-  plotLoadings(params$after_splsda$splsda, comp=i, contrib = 'max', method = 'mean')
+  plotLoadings(params$after_splsda$splsda, comp=i, contrib = 'max', method = 'mean', title = paste('Loadings of component', i))
 }
 ```
