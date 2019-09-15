@@ -58,6 +58,7 @@ plot(params$after_fisher_pca_data, main = 'Principal components with the selecte
 ## ReliefF
 ### Data
 Number of genes kept after ReliefF: `r params$input$relieff_vars`\newline
+Number of nearest neighbors chosen: `r params$input$relieff_k`\newline
 Number of iterations made: `r if (params$input$relieff_iters == 0) { params$input$fisher_vars } else if (params$input$relieff_iters == -1) { floor(log(params$input$fisher_vars)) } else { floor(sqrt(params$input$fisher_vars)) }`\newline
 Algorithm chosen to calculate the scores: `r params$input$relieff_method`\newline
 

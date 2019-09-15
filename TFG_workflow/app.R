@@ -43,6 +43,7 @@ ui <- fluidPage(
          tags$h3(paste0('Parameters for ReliefF')),
          checkboxInput('use_relieff', 'Perform a ReliefF step?', value = TRUE),
          numericInput('relieff_vars', 'Amount of variables to keep:', min = 1, value = 1000),
+         numericInput('relieff_k', 'Amount of nearest neighbors to consider', min = 1, value = 10),
          selectInput('relieff_iters', 'Amount of iterations to perform:', c('Dataset size' = 0, 'ln(Dataset size)' = -1, 'sqrt(Dataset size)' = -2), selected = 0),
          selectInput('relieff_method', 'ReliefF algorithm to calculate the scores:', c('ReliefFequalK', 'ReliefFexpRank'), selected = 'ReliefFequalK'),
          checkboxInput('draw_relieff_heatmap', 'Draw heatmap of the selected variables after ReliefF?', value = TRUE),
@@ -190,7 +191,7 @@ server <- function(input, output, clientData, session) {
       after_fisher_pca_data(apply_pca(after_fisher()$data, classes(), debug = FALSE))
       output$pca_plot = renderPlot(plot(after_fisher_pca_data(), main = 'Principal components with the selected variables after Fisher scoring'))
       if (input$use_relieff){
-        after_relieff(apply_relieff(after_fisher()$data, classes(), features_to_keep = input$relieff_vars, iterations = input$relieff_iters, estimator = input$relieff_method, debug = FALSE))
+        after_relieff(apply_relieff(after_fisher()$data, classes(), input$relieff_k, features_to_keep = input$relieff_vars, iterations = input$relieff_iters, estimator = input$relieff_method, debug = FALSE))
         output$relieff_plot = renderPlot({
           plot(after_relieff()$sorted_attrs, ylab = 'Score', main = 'ReliefF scores')
           abline(v = input$relieff_vars, col = 'red', lwd = 2)

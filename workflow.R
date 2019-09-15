@@ -51,7 +51,7 @@ apply_fisher = function(dataset, positive, negative, features_to_keep = 5000, de
 set.seed(1337)
 
 # Applies ReliefF. For now, only ReliefFequalK, but I plan on using exp too and adding a parameter to specify it
-apply_relieff = function(dataset, classes, features_to_keep = 500, iterations = 0, estimator = 'ReliefFexpRank', debug = TRUE){
+apply_relieff = function(dataset, classes, nearest_neighbors, features_to_keep = 500, iterations = 0, estimator = 'ReliefFexpRank', debug = TRUE){
   
   output = NULL
 	
@@ -60,7 +60,7 @@ apply_relieff = function(dataset, classes, features_to_keep = 500, iterations = 
 	df_ = as.data.frame(dataset)
 	df = cbind(df_, class=classes)
 
-	reliefF_attrs = attrEval('class', df, estimator=estimator, ReliefIterations=iterations)
+	reliefF_attrs = attrEval('class', df, estimator=estimator, ReliefIterations=iterations, kNearestEqual = nearest_neighbors, kNearestExpRank = nearest_neighbors)
 
 	sorted_attrs = sort(reliefF_attrs, decreasing=TRUE, index.return=TRUE)
   if (debug){
@@ -163,7 +163,7 @@ apply_splsda = function(dataset, classes, variables_to_keep, components = 10, cv
 }
 
 ####### MAIN FUNCTION TO EXECUTE #######
-apply_workflow = function(dataset, classes, fisher_variables = 5000, relieff_variables = 500, pca_components = 10, cv_folds = 5, cv_repeats = 10, debug=TRUE){
+apply_workflow = function(dataset, classes, nearest_neighbors, fisher_variables = 5000, relieff_variables = 500, pca_components = 10, cv_folds = 5, cv_repeats = 10, debug=TRUE){
 	# Process initial data
 	data_matrix = as.matrix.data.frame(dataset)
 	positives = which(classes == classes[1])
@@ -171,7 +171,7 @@ apply_workflow = function(dataset, classes, fisher_variables = 5000, relieff_var
 
 	after_fisher = apply_fisher(data_matrix, positives, negatives, debug = debug)
 
-	after_relieff = apply_relieff(after_fisher, classes, debug = debug)
+	after_relieff = apply_relieff(after_fisher, classes, nearest_neighbors, debug = debug)
 
 	apply_pca(after_relieff, classes, debug = debug)
 	
