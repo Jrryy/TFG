@@ -10,6 +10,7 @@ params:
   classes: NA
   positives: NA
   negatives: NA
+  port: NA
   original_pca_data: NA
   original_fisher_data: NA
   after_fisher_pca_data: NA
@@ -113,7 +114,7 @@ for (i in seq(ncomp)){
 ```
 
 ```{asis, echo=params$input$draw_cim, eval=params$input$draw_cim}
-![](TFG_workflow/cim.png)
+![](TFG_workflow/`r paste("cim", params$port, ".png", sep = "_")`)
 ```
 
 

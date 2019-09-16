@@ -266,12 +266,14 @@ server <- function(input, output, clientData, session) {
         conds = levels(factor(classes()))
         cond.col = c('red', 'green')
         names(cond.col) = conds
-        png("cim.png", height = 800, width = 800)
+        port = session$clientData$url_port
+        cim_name = paste("cim", port, ".png", sep = "_")
+        png(cim_name, height = 800, width = 800)
         cim(after_splsda()$splsda, row.sideColors = cond.col[classes()], legend = list())
         dev.off()
         if (input$draw_cim){
           output$cim = renderImage({
-            list(src="cim.png")
+            list(src=cim_name)
             },
             deleteFile = FALSE)
         } else {
@@ -294,6 +296,7 @@ server <- function(input, output, clientData, session) {
                     classes = classes(),
                     positives = positives(),
                     negatives = negatives(),
+                    port = session$clientData$url_port,
                     original_pca_data = original_pca_data(),
                     original_fisher_data = original_fisher_data(),
                     after_fisher_pca_data = after_fisher_pca_data(),
