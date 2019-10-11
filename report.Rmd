@@ -30,12 +30,12 @@ knitr::opts_chunk$set(echo = FALSE)
 ```
 ## Initial state and Fisher filter
 ### Data
-Number of genes: `r dim(params$original_data)[2]`\newline
+Number of variables: `r dim(params$original_data)[2]`\newline
 Number of samples: `r dim(params$original_data)[1]`\newline
 Classes: `r levels(factor(params$classes))` \newline
 Number of samples of class "`r levels(factor(params$classes))[1]`": `r length(params$positives)`\newline
 Number of samples of class "`r levels(factor(params$classes))[2]`": `r length(params$negatives)`\newline
-Number of genes kept after Fisher: `r params$input$fisher_vars`\newline
+Number of variables kept after Fisher: `r params$input$fisher_vars`\newline
 
 ### Plots
 
@@ -58,7 +58,7 @@ plot(params$after_fisher_pca_data, main = 'Principal components with the selecte
 ```{asis, echo=params$input$use_relieff, eval=params$input$use_relieff}
 ## ReliefF
 ### Data
-Number of genes kept after ReliefF: `r params$input$relieff_vars`\newline
+Number of variables kept after ReliefF: `r params$input$relieff_vars`\newline
 Number of nearest neighbors chosen: `r params$input$relieff_k`\newline
 Number of iterations made: `r if (params$input$relieff_iters == 0) { params$input$fisher_vars } else if (params$input$relieff_iters == -1) { floor(log(params$input$fisher_vars)) } else { floor(sqrt(params$input$fisher_vars)) }`\newline
 Algorithm chosen to calculate the scores: `r params$input$relieff_method`\newline
@@ -124,3 +124,16 @@ for (i in seq(ncomp)){
   plotLoadings(params$after_splsda$splsda, comp=i, contrib = 'max', method = 'mean', title = paste('Loadings of component', i))
 }
 ```
+
+### Selected variables
+
+```{r}
+vars_list = c()
+ncomp = params$after_plsda_perf$final_ncomp
+for (i in seq(ncomp)){
+  new_vars = selectVar(params$after_splsda$splsda, comp=i)$name
+  vars_list = append(vars_list, new_vars[which(!new_vars %in% vars_list)])
+}
+```
+
+`r paste0(vars_list, collapse = "\\newline ")`

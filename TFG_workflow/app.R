@@ -35,14 +35,14 @@ ui <- fluidPage(
          tags$hr(),
          #### Fisher ####
          tags$h3(paste0('Parameters for Fisher scoring')),
-         numericInput('fisher_vars', 'Amount of variables to keep:', min = 1, value = 5000),
+         numericInput('fisher_vars', 'Amount of variables to keep:', min = 100, value = 5000),
          actionButton('submit_fisher', 'Apply Fisher filter'),
          
          tags$hr(),
          #### ReliefF ####
          tags$h3(paste0('Parameters for ReliefF')),
          checkboxInput('use_relieff', 'Perform a ReliefF step?', value = TRUE),
-         numericInput('relieff_vars', 'Amount of variables to keep:', min = 1, value = 1000),
+         numericInput('relieff_vars', 'Amount of variables to keep:', min = 100, value = 1000),
          numericInput('relieff_k', 'Amount of nearest neighbors to consider', min = 1, value = 10),
          selectInput('relieff_iters', 'Amount of iterations to perform:', c('Dataset size' = 0, 'ln(Dataset size)' = -1, 'sqrt(Dataset size)' = -2), selected = 0),
          selectInput('relieff_method', 'ReliefF algorithm to calculate the scores:', c('ReliefFequalK', 'ReliefFexpRank'), selected = 'ReliefFequalK'),
@@ -75,13 +75,14 @@ ui <- fluidPage(
          plotOutput('pca_plot'),
          plotOutput('fisher_plot'),
          plotOutput('relieff_plot'),
-         plotOutput('relieff_heatmap'),
+         imageOutput('relieff_heatmap', height = '800px'),
          plotOutput('error_rate_plot'),
          plotOutput('tuning_plot'),
          plotOutput('individues_plot'),
          plotOutput('auroc_plot'),
          imageOutput('cim', height = '800px'),
-         plotOutput('loadings')
+         plotOutput('loadings'),
+         tableOutput('selected_vars')
       )
    )
 )
@@ -113,19 +114,21 @@ server <- function(input, output, clientData, session) {
     # First let's obtain the input data and check if it's well introduced
     if (endsWith(dataset_file$name, ".csv")){
       csv_data = read.csv(file = dataset_file$datapath, header = TRUE, as.is = TRUE)
-      if(!('classes' %in% colnames(csv_data))){
+      if(!('class' %in% colnames(csv_data))){
         # output$waiting_text = NULL
         output$error_text = renderText('ERROR: There is no classes column in the dataset! Please upload a valid dataset.')
         input_error(TRUE)
       } else{
         input_error(FALSE)
         output$error_text = NULL
-        classes(csv_data$classes)
-        classes_position = match('classes', colnames(csv_data))
-        data_matrix(as.matrix.data.frame(csv_data[-classes_position]))
+        classes(csv_data$class)
+        classes_position = match('class', colnames(csv_data))
+        csv_data_matrix = as.matrix.data.frame(csv_data[-c(1, classes_position)])
+        rownames(csv_data_matrix) = csv_data$X
+        data_matrix(csv_data_matrix)
         classes_names = levels(factor(classes()))
-        positives(which(classes == classes_names[1]))
-        negatives(which(classes == classes_names[2]))
+        positives(which(classes() == classes_names[1]))
+        negatives(which(classes() == classes_names[2]))
       }
     } else if (endsWith(dataset_file$name, ".RData")){
       dataset = load(dataset_file$datapath)
@@ -192,13 +195,21 @@ server <- function(input, output, clientData, session) {
       output$pca_plot = renderPlot(plot(after_fisher_pca_data(), main = 'Principal components with the selected variables after Fisher scoring'))
       if (input$use_relieff){
         after_relieff(apply_relieff(after_fisher()$data, classes(), input$relieff_k, features_to_keep = input$relieff_vars, iterations = input$relieff_iters, estimator = input$relieff_method, debug = FALSE))
+        port = session$clientData$url_port
+        heatmap_name = paste("heatmap", port, ".png", sep = "_")
+        png(heatmap_name, height = 800, width = 800)
+        heatmap(after_relieff()$data, main = paste('Heatmap of the', input$relieff_vars, 'variables after applying ReliefF'))
+        dev.off()
         output$relieff_plot = renderPlot({
           plot(after_relieff()$sorted_attrs, ylab = 'Score', main = 'ReliefF scores')
           abline(v = input$relieff_vars, col = 'red', lwd = 2)
         })
         output$relieff_heatmap = NULL
         if (input$draw_relieff_heatmap){
-          output$relieff_heatmap = renderPlot(heatmap(after_relieff()$data, main = paste('Heatmap of the', input$relieff_vars, 'variables after applying ReliefF')))
+          output$relieff_heatmap = renderImage({
+            list(src=heatmap_name)
+          },
+          deleteFile = FALSE)
         } else {
           output$relieff_heatmap = NULL
         }
@@ -235,10 +246,10 @@ server <- function(input, output, clientData, session) {
           after_plsda_perf(apply_plsda_perf(after_fisher()$data, classes(), components = input$components, cv_folds = input$cv_folds, cv_repeats = input$cv_repeats, debug = FALSE))
         }
     	  output$error_rate_plot = renderPlot({
-    		  matplot(after_plsda_perf()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate for amount of components', ylab = 'Balanced Error Rate')
+    		  matplot(after_plsda_perf()$perf_plsda$error.rate$BER, type = 'l', lty = 1, col = color.mixo(1:3), main = 'Balanced Error Rate per amount of components', ylab = 'Balanced Error Rate')
     		  legend('topright', c('max.dist', 'centroids.dist', 'mahalanobis.dist'), lty = 1, col = color.mixo(1:3))
     	  })
-        output$tuning_plot = renderPlot(plot(after_plsda_perf()$tune_splsda, col = color.jet(input$components), main = 'Error rates for number of components'))
+        output$tuning_plot = renderPlot(plot(after_plsda_perf()$tune_splsda, col = color.jet(input$components), main = 'Error rates per amount of variables per component'))
       }
     }
   })
@@ -284,6 +295,10 @@ server <- function(input, output, clientData, session) {
         } else {
           output$loading = NULL
         }
+        output$selected_vars = renderTable(selectVar(after_splsda()$splsda)$value, rownames = TRUE,
+                                           caption = "Selected variables",
+                                           caption.placement = getOption("xtable.caption.placement", "top"), 
+                                           caption.width = getOption("xtable.caption.width", NULL))
       }
     }
   })

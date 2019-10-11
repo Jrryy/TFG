@@ -11,11 +11,6 @@ if (!'mixOmics' %in% installed.packages()){
 }
 library(mixOmics)
 
-if (!'rgl' %in% installed.packages()){
-  install.packages('rgl')
-}
-library(rgl)
-
 ####### FISHER #######
 
 # to calculate Fisher score of each feature: 
