@@ -41,3 +41,8 @@ rsconnect/
 
 
 .Rproj.user
+
+# Certain project related files
+heatmap*.png
+cim*.png
+random_dataset.csv
